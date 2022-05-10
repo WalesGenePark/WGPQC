@@ -10,9 +10,8 @@ if (${ref} == "mm10"); then
     refpath=/data09/genomes/UCSC/mm10
 fi
 
-singularity exec --bind /data09:/data09 /data09/QCtest/workflow/WGPQC-v1.0.sif QC_map_PE_illumina.pl \
+singularity exec --bind /data09:/data09 /data09/QCtest/workflow/WGPQC-v1.0.sif QC_map_SE_illumina.pl \
     -1 ${R1} \
-    -2 ${R2} \
     -o ${outdir} \
     -s ${sample} \
     -l ${lanestr} \
@@ -20,8 +19,3 @@ singularity exec --bind /data09:/data09 /data09/QCtest/workflow/WGPQC-v1.0.sif Q
     -r ${refpath} \
     -f ${fraction} \
     -e 33
-    
-    
-    
-    
-    

@@ -45,6 +45,10 @@ $SLURM_ACCOUNT="scw1179";
 $SLURM_CORES=10;
 $SLURM_WALLTIME="0-6:00";
 
+$RUNSE="/data09/QCtest/workflow/runSE.sh";
+$RUNPE="/data09/QCtest/workflow/runPE.sh";
+
+
 
 # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 # Process ARGV
@@ -107,6 +111,8 @@ if($verbose){
 if($outdir eq "."){
 	use Cwd;
     $basedir = getcwd;
+} else {
+    $basedir = $outdir;
 }
 
 
@@ -183,8 +189,9 @@ if (! -d $basedir) {
 # Check for a clean run and if not stop if output directory already exists
 if ($clean) {
 	if (-d "$basedir/$outqcdir") {
-		print "Deleting existing QC output directory '$basedir/$outqcdir' ... ";
-		if(rmtree("$basedir/$outqcdir")) { print GREEN "DONE\n"; }
+		print "Deleting existing QC output directory '$basedir/$outqcdir' ... ";	
+		$cmd="rm -R $basedir/$outqcdir";
+		if (system($cmd)){ print GREEN "DONE\n"; }
 		else { print RED "ERROR\n"; exit(1); }
 	}
 } else {
@@ -212,9 +219,7 @@ print "Finding fastq.gz files in run directory ... ";
           
 $cmd="find $rundir -name '*.fastq.gz'";
 @fqfiles = `$cmd`;
-
-
-@fqfiles = uniq @fqfiles;
+chomp(@fqfiles);
 @fqfiles = sort @fqfiles;
 
 $numfq = @fqfiles;
@@ -225,33 +230,30 @@ if($numfq gt 0){
 }
 
 
-
-#find . -name "*.fastq.gz"
-
-
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 # Identify dates, samples, projects and lanes
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-#$DEBUG=0;
+$DEBUG=0;
 
 @lanes = ();
 @dates = ();
 @samples = ();
 
 for $fq (@fqfiles){
-	#print YELLOW "$fq\n";
+	if($DEBUG==1){ print YELLOW "$fq\n"; }
 	$fq =~ /\/(\d\d\d\d\d\d)_\w\d\d\d\d\d_\d\d\d\d_[^_]+.*\/([^\/]+)_\w\d+_(\w\d\d\d)_\w\d_\d\d\d.fastq.gz$/;
 	push(@dates, $1);
 	push(@samples, $2);
 	push(@lanes, $3);
-	#print "$1\t$2\t$3\n";
+	if($DEBUG==1){ print YELLOW "$1\t$2\t$3\n"; }
 
 }
 
 @dates=uniq(@dates);
 @samples=uniq(@samples);
 @lanes=uniq(@lanes);
+
 @dates=sort(@dates);
 @samples=sort(@samples);
 @lanes=sort(@lanes);
@@ -268,7 +270,7 @@ if($DEBUG==1){
 # Identify projects and references
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-#$DEBUG=1;
+$DEBUG=0;
 
 %info = ();
 
@@ -289,7 +291,7 @@ for $fq (@fqfiles){
 	} else {
 		$project = "Unknown";
 	}
-	#if($DEBUG==1) { print YELLOW "$project\n"; }
+	if($DEBUG==1) { print YELLOW "$project\n"; }
 
 	# Identify project reference
 	if($multipleref ne ""){
@@ -303,7 +305,8 @@ for $fq (@fqfiles){
 	} elsif($singleref ne ""){
 		$info{$lane}{$sample}{'ref'} = $singleref;
 		$info{$lane}{$sample}{'project'} = $project;
-	}
+		$refs{$project} = $singleref;
+	} 
 }
 
 # Add references for undetermined
@@ -326,15 +329,19 @@ for $lane (sort(keys(%info))){
 # Add phiX if required
 if(!defined($nophix)){
 	for $lane (keys(%info)){
-		for $line ($info{$lane}){
-			for $sample (keys(%$line)){
-				$info{$lane}{$sample}{'ref'} = "phiX," . $info{$lane}{$sample}{'ref'}
-			}
+		if(exists($info{$lane}{'Undetermined'})){
+			$info{$lane}{'Undetermined'}{'ref'} = "phiX," . $info{$lane}{'Undetermined'}{'ref'}
 		}
 	}
 }
+	
 
-#print CYAN Dumper (%info);
+if($DEBUG==1){
+	print CYAN Dumper (%info);
+	print CYAN Dumper(%refs);
+}
+
+
 
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 # Single or paired end?
@@ -419,8 +426,7 @@ for $project (sort(uniq(@pp))){
 	$pnsamp = grep { $_ eq $project  } @pp;
 	$planes = join(",",get_lanes($project));
 	$pref = $refs{$project};
-	if(!defined($nophix)) { $pref = "phiX,".$pref; }
-	if($project eq "Undetermined") { $pref = ""; }
+	if(!defined($nophix) && $project eq "Undetermined") { $pref = "phiX,".$pref; }
 	print colored(sprintf("%-2s %-16s %-16s %-16s %-30s\n", '', $project, $planes, $pnsamp, $pref), "white");
 }
 print '-' x 80; print "\n";
@@ -454,7 +460,11 @@ if (prompt_yn("Please confirm this looks right")){
 # Kick off QC runs
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-#$DEBUG=0;
+$DEBUG=1;
+if($DEBUG==1){
+	print CYAN Dumper (%info);
+	print CYAN Dumper(%refs);
+}
 
 print "Submitting jobs to queue ... ";
 if($DEBUG==1) { print "\n"; }
@@ -478,7 +488,9 @@ for $lane (sort(keys(%info))){
 
 				# Setup output directory
 				$outputdir = "$basedir/$outqcdir/QC_$ref";
-				make_path($outputdir);
+				$cmd = "mkdir -p $outputdir";
+				system($cmd);
+				
 				if( -d $outputdir ){
 					chdir($outputdir);
 					#if($DEBUG==1) { print CYAN getcwd . "\n"; }
@@ -491,10 +503,7 @@ for $lane (sort(keys(%info))){
 					$R1 = $info{$lane}{$sample}{'R1'};
 					#$cmd = "queueit.pl -cpus $threads -name $jobname -- QC_map_SE_illumina.pl -1 $R1 -o $outdir -s $sample -l $lanestr -t $threads -r $ref -f $fraction -e 33 >/dev/null 2>&1";
 					
-					$cmd = "sbatch --account=\"$SLURM_ACCOUNT\" --partition=\"$SLURM_PARTITION\" --nodes=1 --ntasks-per-node=1 --cpus-per-task=\"$SLURM_CORES\" --time=\"$SLURM_WALLTIME\"
-					        --error=\"$SLURM_ERR\" --output=\"$SLURM_OUT\" 
-					        --export=R1=\"$R1\",outdir=\"$outdir\",sample=\"$sample\",lanestr=\"$lanestr\",ref=\"$ref\",fraction=\"$fraction\"
-					        runSE.sh";				
+					$cmd = "sbatch --account=\"$SLURM_ACCOUNT\" --partition=\"$SLURM_PARTITION\" --nodes=1 --ntasks-per-node=1 --cpus-per-task=$SLURM_CORES --time=\"$SLURM_WALLTIME\" --error=\"$jobname.err\" --output=\"$jobname.out\" --export=\"R1=$R1,outdir=$outdir,sample=$sample,lanestr=$lanestr,ref=$ref,fraction=$fraction\" $RUNSE";
 					
 					if($DEBUG==1) { print MAGENTA "$cmd\n"; }
 					if($dryrun == 0){
@@ -507,11 +516,7 @@ for $lane (sort(keys(%info))){
 					$R2 = $info{$lane}{$sample}{'R2'};
 					#$cmd = "queueit.pl -cpus $threads -name $jobname -- QC_map_PE_illumina.pl -1 $R1 -2 $R2 -o $outdir -s $sample -l $lanestr -t $threads -r $ref -f $fraction -e 33 >/dev/null 2>&1";
 					
-					$cmd = "sbatch --account=\"$SLURM_ACCOUNT\" --partition=\"$SLURM_PARTITION\" --nodes=1 --ntasks-per-node=1 --cpus-per-task=\"$SLURM_CORES\" --time=\"$SLURM_WALLTIME\"
-					        --error=\"$SLURM_ERR\" --output=\"$SLURM_OUT\" 
-					        --export=R1=\"$R1\",R2=\"$R2\",outdir=\"$outdir\",sample=\"$sample\",lanestr=\"$lanestr\",ref=\"$ref\",fraction=\"$fraction\"
-					        runPE.sh";	
-					
+					$cmd = "sbatch --account=\"$SLURM_ACCOUNT\" --partition=\"$SLURM_PARTITION\" --nodes=1 --ntasks-per-node=1 --cpus-per-task=$SLURM_CORES --time=\"$SLURM_WALLTIME\" --error=\"$jobname.err\" --output=\"$jobname.out\" --export=\"R1=$R1,R2=$R2,outdir=$outdir,sample=$sample,lanestr=$lanestr,ref=$ref,fraction=$fraction\" $RUNPE";
 					
 					if($DEBUG==1) { print MAGENTA "$cmd\n"; }
 					if($dryrun == 0){

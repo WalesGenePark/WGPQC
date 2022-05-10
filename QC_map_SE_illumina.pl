@@ -22,7 +22,6 @@ my $encoding 	= $options{e} || 33;
 sub usage {die
 	"USAGE: " . basename($0) .
 	"\n\t [-1 1st fastq.gz file]" .
-	"\n\t [-2 2nd fastq.gz file]" .
 	"\n\t [-o outdir]" .
 	"\n\t [-s sample id]" .
 	"\n\t [-e QV encoding (default 33)]" .
@@ -44,11 +43,8 @@ if ($lane =~ /^[lL]ane\d/) {
 
 # Define outfiles
 my $r1_fastqFile 	= "$sample.r1.fastq.gz";
-my $r2_fastqFile 	= "$sample.r2.fastq.gz";
 my $r1_subsetFastqFile 	= "$sample.r1.subset.fastq.gz";
-my $r2_subsetFastqFile 	= "$sample.r2.subset.fastq.gz";
 my $r1_saiFile		= "$sample.r1.sai";
-my $r2_saiFile		= "$sample.r2.sai";
 my $samFile		= "$sample.sam";
 my $bamFile		= "$sample.bam";
 my $markdupBamFile	= "$sample.markdup.bam";
@@ -59,11 +55,9 @@ my $insertPngFile	= "$sample\_insert.png";
 my $igvFile		= "$sample.igv.jnlp";
 my $fastqcDir           = "$sample\_fastqc";
 my $r1_rawFastqcDir	= "$sample.r1.subset_fastqc";
-my $r2_rawFastqcDir     = "$sample.r2.subset_fastqc";
 
 # Get full paths to input fastq files
 my $r1_fastqPath = abs_path($infile1);
-my $r2_fastqPath = abs_path($infile2);
 
 # Create and enter output directory
 mkdir($outdir);
@@ -73,28 +67,25 @@ mkdir($sample);
 chdir($sample) or die "ERROR: could not enter $sample.\n";
 
 # Create symbolic links to data
-if (!-e $r1_fastqFile || !-e $r2_fastqFile) {
+if (!-e $r1_fastqFile ) {
 	run("ln -s $r1_fastqPath $r1_fastqFile");
-	run("ln -s $r2_fastqPath $r2_fastqFile");
 	}
 
 if ($fraction == 1) {
 	print "Symbolic linking $r1_fastqFile -> $r1_subsetFastqFile\n";
 	run("ln -s $r1_fastqFile $r1_subsetFastqFile");
-	print "Symbolic linking $r2_fastqFile -> $r2_subsetFastqFile\n";
-	run("ln -s $r2_fastqFile $r2_subsetFastqFile");
 	}
 
 # Subsample gzipped Fastq files
 if (!-e $r1_subsetFastqFile || !-e $r2_subsetFastqFile) {
 	run("java -jar /software/WGP-Toolkit/SubsampleFastq.jar -f $fraction -i <(gunzip -c $r1_fastqFile) | gzip > $r1_subsetFastqFile");
-	run("java -jar /software/WGP-Toolkit/SubsampleFastq.jar -f $fraction -i <(gunzip -c $r2_fastqFile) | gzip > $r2_subsetFastqFile");
+
 	}
 
 # Map
 if (!-e $samFile) {
 	my $rgLine = "\@RG\\tID:$sample\\tSM:$sample\\tPL:ILLUMINA";
-	run("bwa mem -t$threads -M -R '$rgLine' $ref $r1_subsetFastqFile $r2_subsetFastqFile > $samFile");
+	run("bwa mem -t$threads -M -R '$rgLine' $ref $r1_subsetFastqFile > $samFile");
 	}
 
 # create sorted index bam
@@ -131,22 +122,7 @@ if (!-e $resultsFile) {
 	# Create web page for stats images
     #------------------------------------------------------------------------------
     toHtml("r1", $sample);
-    
-	# fastq metrics r2
-    #------------------------------------------------------------------------------
-    
-    open (PIPE, "bash -c 'java -jar /software/WGP-Toolkit/SimpleFastqStats.jar -e $encoding -f <(gunzip -c $r2_subsetFastqFile) -t $sample.r2.QV -c 20 -p r2 2> /dev/null' |" ) or die "ERROR: could not open pipe. ";
-    while (<PIPE>) {
-    	chomp;
-        	/^(\S+)=([^=]+)$/ or die "ERROR: regex failed with '$_'. ";
-            $properties{$1} = $2;
-    }
-    close (PIPE) or die "ERROR: could not close pipe. ";
-
-	# Create web page for stats images
-    #------------------------------------------------------------------------------
-    toHtml("r2", $sample);
-	
+    	
 	# BAM metrics
     #------------------------------------------------------------------------------
     open (PIPE, "java -jar /software/WGP-Toolkit/SimpleBAMStats.jar -b $bamFile -p $bamFile -c 20 2> /dev/null |" ) or die "ERROR: could not open pipe. ";
@@ -157,38 +133,6 @@ if (!-e $resultsFile) {
     }
     close (PIPE) or die "ERROR: could not close pipe. ";
     
-
-	# insert sizes
-	#------------------------------------------------------------------------------
-	#run("samtools view -f 64 $bamFile | cut -f 9 | perl -pe 's/-//;' | toHist.pl -i - -b 10 | tail -n +2 | head -n 1000 > $insertHistFile");
-
-	# Bug in above code, corrected by AE 14-09-2016 - actioned by nestor:
-	run("samtools view -f 64 $bamFile | cut -f 9 | perl -pe 's/-//;' | toHist.pl -i - -b 10 | head -n 1001 | tail -n +2  > $insertHistFile");
-
-	my $median = `samtools view -f 64 $bamFile | cut -f 9 | perl -pe 's/-//;' | perl -ne 'print if \$_ > 0' | descriptiveStatsAsAline.pl -i - | cut -f6`;
-    chomp($median);
-	$properties{'insert.median'} = $median;
-
-	open (GB, ">$insertGbFile") or die "ERROR: could not open $insertGbFile.\n";
-        print GB "set xrange [-10:1000]\n";
-        print GB "set style fill solid border -1\n";
-        print GB "unset key\n";
-        print GB "set title \"Insert size histogram\"\n";
-        print GB "set ticscale 2\n";
-		print GB "set tics out\n";
-        print GB "set ytics nomirror\n";
-        print GB "set xtics nomirror\n";
-        print GB "set xlabel \"Insert size (bp)\"\n";
-        print GB "set ylabel \"Occurrence\"\n";
-        print GB "set terminal png\n";
-        print GB "set output \"$insertPngFile\"\n";
-        print GB "plot '$insertHistFile' w boxes\n";
-        close (GB) or die "ERROR: could not close $insertGbFile.\n";
-        run("gnuplot $insertGbFile");
-	#------------------------------------------------------------------------------
-
-
-
 	# Write to outfile.
         open (OUT, ">$resultsFile") or die "ERROR: could not open $resultsFile.\n";
         	foreach my $key (sort keys %properties) {
@@ -223,15 +167,10 @@ if (!-e $resultsFile) {
                 run("fastqc -f fastq $r1_subsetFastqFile");
                 }
 
-        if (!-e $r2_rawFastqcDir) {
-                run("fastqc -f fastq $r2_subsetFastqFile");
-                }
-        #---------------------------------------------------------------------
         
     # Cleanup
         
 	unlink($r1_subsetFastqFile);
-	unlink($r2_subsetFastqFile);	
 	unlink($samFile);
 	unlink($bamFile);
 	unlink("$bamFile.bai");
