@@ -72,7 +72,7 @@ fi
 ```
 
 
-MappingQC_singularity
+## MappingQC_singularity
 
 This directory contains all the custom code and libraries necessary along with a singularity definitions file needed to create a sif file to run the key QC pipeline.
 
