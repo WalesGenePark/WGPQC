@@ -4,13 +4,8 @@ These are the scripts and container definition files for running run QC by mappi
 
 ## QC workflow
 * Run mapping QC on all fastqc files (illuminaQC.pl)
-* Create run specific QC html files (QC_map_PE_illumina.pl)
+* Create run specific QC html files (QC_html_PE_illumina.pl)
 * Update index for all QC runs
-
-
-
-
-
 
 	
 ## illuminaQC
@@ -39,6 +34,21 @@ illuminaQC.pl -t $CPUTHREADS -i $DIR -o $OUT -refs R120:hg19,R100:mm10
 
 By default, Undetermined reads are mapped against the phiX genome.
 
+
+
+Settings are found at the top of the file and include:
+
+```
+$SLURM_PARTITION="c_compute_cg1";
+$SLURM_ACCOUNT="scwNNN";
+$SLURM_CORES=10;
+$SLURM_WALLTIME="0-6:00";
+
+$RUNSE="/data09/QC_pipelines/workflow/runSE.sh";
+$RUNPE="/data09/QC_pipelines/workflow/runPE.sh";
+
+$QCOUTPUTDIR="/data09/QCtest";
+```
 	
 ## Run scripts (runPE.sh and runSE.sh)
 
