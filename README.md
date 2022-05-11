@@ -11,14 +11,34 @@ These are the scripts and container definition files for running run QC by mappi
 
 
 
-## Create genome indexes
-This project is simple Lorem ipsum dolor generator.
+
 	
 ## illuminaQC
-Project is created with:
-* Lorem version: 12.3
-* Ipsum version: 2.33
-* Ament library version: 999
+
+This script acts as a launcher, creating and submitting slurms scripts for the fastq files detected in the input directory.
+
+The script can apply map all samples against the same reference geneome:
+
+```
+DIR=/data09/incoming/220406_M03762_0171_000000000-DFVKK/Data/Intensities/BaseCalls
+OUT=/data09/QCtest
+CPUTHREADS=10
+
+illuminaQC.pl -t $CPUTHREADS -i $DIR -o $OUT -ref hg19
+```
+
+Or, can apply a different genome according to the project code identified in the sample name:
+
+```
+DIR=/data09/incoming/220406_M03762_0171_000000000-DFVKK/Data/Intensities/BaseCalls
+OUT=/data09/QCtest
+CPUTHREADS=10
+
+illuminaQC.pl -t $CPUTHREADS -i $DIR -o $OUT -refs R120:hg19,R100:mm10
+```
+
+By default, Undetermined reads are mapped against the phiX genome.
+
 	
 ## Run scripts (runPE.sh and runSE.sh)
 
