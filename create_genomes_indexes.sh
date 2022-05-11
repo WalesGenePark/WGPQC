@@ -1,8 +1,3 @@
-
-
-
-
-
 # hg19
 # ----------------------------------------------------------------------------
 
@@ -57,3 +52,18 @@ cp /scratch/c.wptpjg/data09/UCSC/rn6/* /data09/genomes/UCSC/rn6
 
 # PhiX
 # ----------------------------------------------------------------------------
+
+mkdir -p /scratch/c.wptpjg/data09/genomes/PhiX
+cd /scratch/c.wptpjg/data09/genomes/PhiX
+
+curl -O  http://igenomes.illumina.com.s3-website-us-east-1.amazonaws.com/PhiX/Illumina/RTA/PhiX_Illumina_RTA.tar.gz
+tar -xvpf PhiX_Illumina_RTA.tar.gz
+cp ./PhiX/Illumina/RTA/Sequence/WholeGenomeFasta/genome.fa PhiX.fa
+rm -R ./PhiX
+
+wget https://wotan.cardiff.ac.uk/containers/bwa-0.7.17.sif
+module load singularity
+singularity exec bwa-0.7.17.sif bwa index -a bwtsw -p PhiX PhiX.fa
+
+mkdir -p /data09/genomes/Illumina/PhiX
+cp /scratch/c.wptpjg/data09/genomes/PhiX/* /data09/genomes/Illumina/PhiX

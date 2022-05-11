@@ -330,7 +330,7 @@ for $lane (sort(keys(%info))){
 if(!defined($nophix)){
 	for $lane (keys(%info)){
 		if(exists($info{$lane}{'Undetermined'})){
-			$info{$lane}{'Undetermined'}{'ref'} = "phiX," . $info{$lane}{'Undetermined'}{'ref'}
+			$info{$lane}{'Undetermined'}{'ref'} = "PhiX," . $info{$lane}{'Undetermined'}{'ref'}
 		}
 	}
 }
