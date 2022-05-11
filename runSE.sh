@@ -18,6 +18,7 @@ if [ "${ref}" == "PhiX}" ]; then
     refpath=/data09/QC_pipelines/genomes/Illumina/PhiX/PhiX
 fi
 
+#https://wotan.cardiff.ac.uk/containers/WGPQC-v1.0.sif
 singularity exec --bind /data09:/data09 /data09/QC_pipelines/workflow/WGPQC-v1.0.sif QC_map_SE_illumina.pl \
     -1 ${R1} \
     -o ${outdir} \
