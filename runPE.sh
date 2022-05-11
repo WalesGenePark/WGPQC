@@ -10,6 +10,15 @@ if [ "${ref}" == "mm10" ]; then
     refpath=/data09/QC_pipelines/genomes/UCSC/mm10/mm10
 fi
 
+if [ "${ref}" == "rn6" ]; then
+    refpath=/data09/QC_pipelines/genomes/UCSC/rn6/rn6
+fi
+
+if [ "${ref}" == "PhiX}" ]; then
+    refpath=/data09/QC_pipelines/genomes/Illumina/PhiX/PhiX
+fi
+
+#https://wotan.cardiff.ac.uk/containers/WGPQC-v1.0.sif
 singularity exec --bind /data09:/data09 /data09/QC_pipelines/workflow/WGPQC-v1.0.sif QC_map_PE_illumina.pl \
     -1 ${R1} \
     -2 ${R2} \

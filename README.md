@@ -1,6 +1,6 @@
 ## Overview
 
-These are the scripts and container definition files for running run QC by mapping the fastqc files and extracting various metrics.
+These are the scripts and container definition files for running run QC by mapping the fastqc files and extracting various metrics using slurm scripts running singularity containers for the analysis.
 
 ## QC workflow
 * Run mapping QC on all fastqc files (illuminaQC.pl)
