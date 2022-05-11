@@ -22,14 +22,20 @@ Project is created with:
 	
 ## Run scripts (runPE.sh and runSE.sh)
 
-These files act as the link between the illuminaQC
+These files act as the link between the illuminaQC script and the container containing the mapping workflow.
 
+System specific changes that might be required include, the path to various genome references:
 
 ```
-$ cd ../lorem
-$ npm install
-$ npm start
+refpath=/data09/QC_pipelines/genomes/UCSC/mm10/mm10
 ```
+
+And the bind paths for singularity to be able to write to various filesystem locations.
+
+```
+singularity exec --bind /data09:/data09 /data09/QC_pipelines/workflow/WGPQC-v1.0.sif QC_map_PE_illumina.pl \
+```
+
 
 
 ## Create genome indexes
