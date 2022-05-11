@@ -1,0 +1,84 @@
+#!/usr/bin/perl -w
+
+#===============================================================================
+#
+#    Created: 22/10/2008 16:07:54
+#    Copyright (C) 2008, University of Liverpool.
+#    Author: Kevin Ashelford.
+#
+#    Contact details:
+#    Email:   k.ashelford@liv.ac.uk
+#    Address: School of Biological Sciences, University of Liverpool, 
+#             Biosciences Building, Crown Street, Liverpool, UK. L69 7ZB
+#
+#    This program is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation; either version 2 of the License, or
+#    any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program; if not, write to the Free Software
+#    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+#===============================================================================
+
+# INTERFACE NAME
+package Kea::IO::SOLiD::Snps::ISnp;
+
+use strict;
+use warnings;
+use Kea::Object;
+
+our $_message = "Undefined method.";
+
+################################################################################
+
+
+sub getCoverage 			{Kea::Object->throw($_message);}
+
+sub getReferenceAllele 		{Kea::Object->throw($_message);}
+
+sub getConsensusAllele		{Kea::Object->throw($_message);}
+
+
+sub getReferenceScore		{Kea::Object->throw($_message);}
+
+sub getReferenceConfidence	{Kea::Object->throw($_message);}
+
+sub getReferenceF3Total		{Kea::Object->throw($_message);}
+
+sub getReferenceF3Unique	{Kea::Object->throw($_message);}
+
+sub getReferenceR3Total		{Kea::Object->throw($_message);}
+
+sub getReferenceR3Unique	{Kea::Object->throw($_message);}
+
+
+sub getConsensusScore		{Kea::Object->throw($_message);}
+
+sub getConsensusConfidence	{Kea::Object->throw($_message);}
+
+sub getConsensusF3Total		{Kea::Object->throw($_message);}
+
+sub getConsensusF3Unique	{Kea::Object->throw($_message);}
+
+sub getConsensusR3Total		{Kea::Object->throw($_message);}
+
+sub getConsensusR3Unique	{Kea::Object->throw($_message);}
+
+sub getCoordinate			{Kea::Object->throw($_message);}
+
+
+sub toString 				{Kea::Object->throw($_message);}
+
+################################################################################
+	
+#///////////////////////////////////////////////////////////////////////////////
+#///////////////////////////////////////////////////////////////////////////////
+1;
+

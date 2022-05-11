@@ -1,0 +1,104 @@
+
+Bootstrap: docker
+From: centos:8
+
+%files 
+    /home/pjg/WGPQC/QC_map_PE_illumina.pl /software/WGPQC/
+    /home/pjg/WGPQC/QC_map_SE_illumina.pl /software/WGPQC/                                                                                
+    /home/pjg/WGPQC/createIGVLauncher.pl /software/WGPQC/      
+    /home/pjg/WGPQC/toHist.pl /software/WGPQC/                                                                      
+    /home/pjg/WGPQC/descriptiveStatsAsAline.pl /software/WGPQC/  
+
+    /home/pjg/WGPQC/WGP-Toolkit/* /software/WGP-Toolkit/
+
+    /home/pjg/WGPQC/lib-perl/* /software/lib-perl/
+
+
+
+%post
+
+    mkdir -p /software
+
+    sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-Linux-*
+    sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-Linux-*
+
+    # General tools / utils
+    # ------------------------------------------------------
+
+    yum install -y wget
+    yum install -y make 
+    yum install -y gcc
+    yum install -y unzip
+    yum install -y gzip
+    yum install -y gnuplot
+
+
+    # htslib
+    # ------------------------------------------------------
+
+    yum install -y bzip2 bzip2-devel
+    yum install -y zlib-devel xz-devel 
+    yum install -y --allowerasing libcurl-devel
+    yum install -y openssl-devel
+
+    mkdir -p /software
+    cd /software
+    wget https://github.com/samtools/htslib/releases/download/1.13/htslib-1.13.tar.bz2
+    tar -xvpf htslib-1.13.tar.bz2
+    cd htslib-1.13
+    ./configure --prefix=/usr/local
+    make
+    make install
+
+
+    # samtools
+    # ------------------------------------------------------
+
+    yum search epel-release
+    yum info epel-release
+    yum install -y epel-release
+    yum install -y samtools
+
+    # fastqc
+    # ------------------------------------------------------
+
+    yum install -y java-11-openjdk
+    yum install -y xorg-x11-server-Xorg xorg-x11-xauth xorg-x11-utils
+    yum install -y glibc-locale-source glibc-langpack-en
+
+    localedef -c -f UTF-8 -i en_GB en_GB.UTF-8
+
+    cd /software
+    wget https://www.bioinformatics.babraham.ac.uk/projects/fastqc/fastqc_v0.11.9.zip
+    unzip fastqc_v0.11.9.zip
+    chmod 755 /software/FastQC/fastqc
+
+
+    # bwa
+    # ------------------------------------------------------
+
+    yum install -y bwa
+
+
+    # picard
+    # ------------------------------------------------------
+
+    cd /software
+    wget https://github.com/broadinstitute/picard/releases/download/2.25.6/picard.jar
+
+
+%environment
+    export PATH=/software:$PATH
+    export PATH=/software/WGPQC:$PATH
+
+    export JAVA_OPTS="-Djava.awt.headless=true"
+    export PATH=/software/FastQC/:$PATH
+
+    export PICARD=/software/picard.jar
+
+    PERL5LIB=:/software/lib-perl/
+    export PERL5LIB
+
+%runscript
+    QC_map_PE_illumina.pl $@
+    

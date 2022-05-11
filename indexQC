@@ -1,0 +1,432 @@
+#!/usr/bin/perl -w
+use Getopt::Long;
+use Data::Dumper;
+#use Date::Calc;
+use Time::Local;
+use Cwd;
+use Term::ANSIColor qw(:constants);
+local $Term::ANSIColor::AUTORESET = 1;
+
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# Settings
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+my @QCplatforms = ("miseq","hiseq","novaseq","solid","proton","solidother","illuminaother");  
+
+my %QCdirs = (
+    "miseq"  => "illumina/WGP",
+    "hiseq" => "illumina_hiseq/WGP",
+    "novaseq" => "novaseq/WGP",
+    "solid"  => "solid/WGP",
+    "proton"  => "ion_proton/WGP",
+    "solidother"  => "solid/other",
+    "illuminaother"  => "illumina/other",    
+);
+
+my %QCnames = (
+    "miseq"  => "MiSeq",
+    "hiseq" => "HiSeq",
+    "novaseq" => "NovaSeq",
+    "solid"  => "SOLiD",
+    "proton"  => "Ion Proton",
+    "solidother"  => "External SOLiD",
+    "illuminaother"  => "External Illumina",    
+);
+
+my %QCbtn = (
+    "hg19"  => "primary",
+    "mm10"  => "danger",
+    "phiX"  => "success",
+    "rn6"  => "warning",
+    "other" => "info",
+);
+
+$firstyear = "2012";
+$latest = 6;
+$navside = "nav_side_dev.html";
+
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# Process ARGV
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+sub helpmsg {
+    $string = "[--all] ";
+    foreach $platform (@QCplatforms){
+		$string .= "[--$platform] ";
+    }
+	print "Usage:   indexQC $string\n";
+	print "\n";
+	print "Example: 'indexQC --miseq' will update MiSeq QC for current year and last $latest runs\n";
+	print "Example: 'indexQC --miseq --all' will update MiSeq QC for all years since $firstyear\n";
+	print "Example: 'indexQC --all' will update all QC from $firstyear to now\n";
+	print "\n";
+	exit(0);
+}
+
+unless(@ARGV){ &helpmsg; }
+Getopt::Long::Configure('no_auto_abbrev','pass_through');
+GetOptions ('help|h|?' => \$help, , 'all' => \$all,);
+
+if($help) { &helpmsg; }
+
+# Get sequencing platform
+if($all) { @platforms = @QCplatforms;} 
+else { @platforms = (); }
+if(@ARGV!=0) {
+	foreach $val (@ARGV) {
+		$val =~ s/-+//;
+		#print "===> $val\n";
+		if (exists $QCdirs{$val}) {
+			@platforms = ($val);
+		}
+	}
+}
+if(@platforms==0) { &helpmsg; }
+#print "Platform ===> ". Dumper(@platform) . "\n";
+
+# Get current year / all years
+use POSIX qw(strftime);
+$currentyear = strftime "%Y", localtime;
+our $currentyear = sprintf("%02d", $currentyear);
+if($all) { @years =reverse($firstyear..$currentyear);  }
+else { @years = $currentyear;}
+#print "Year ===> ". Dumper(@years) . "\n";
+
+unshift @years, ("latest");
+
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# Functions
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+sub qcDateToNumber {
+
+        my $date = shift;
+
+        #if ($date eq "example" || $date =~ /\./) {return 0;}
+	
+       $date =~ /(\d+)\_(\d+)\_(\d+)_QC/ or die "ERROR: regex failed with '$date'. ";
+
+        return "$1$2$3";
+
+        } # End of method.
+
+sub qcDateToYear {
+
+        my $date = shift;
+
+        #if ($date eq "example" || $date =~ /\./) {return 0;}
+	
+       	if($date =~ /(\d+)\_(\d+)\_(\d+)_QC/){
+        	return "$1"; 
+        } else {return "9999";}
+
+        } # End of method.
+        
+sub dirToDate {
+	
+	my $dir = shift;
+
+	$dir =~ /(\d+)\_(\d+)\_(\d+)_QC/ or die "ERROR: regex failed with '$dir'. ";
+	@abbr = qw( Sun Mon Tue Wed Thu Fri Sat );
+    $date = timelocal(0, 0, 0, $3, $2-1, $1-1900);
+    $day = (localtime $date)[6];
+    $dow = $abbr[$day];
+
+	@months = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
+
+	return "$dow $3".$months[$2-1]."$1";
+
+	} # End of method.
+        
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# Update nav_side
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+sub outputnavside {
+
+	open (OUT, ">$navside") or die "ERROR: could not create $file.\n";
+	print OUT '<div align="left" style="padding: 0px 0px 12px 12px;"> <!-- T R B L -->';
+	print OUT '	<img src="http://wotan.cf.ac.uk/img/wgp.png" style="width:140px">';
+	print OUT '</div>';
+
+	@navs =reverse($firstyear..$currentyear); 
+	unshift @navs, ("latest");
+
+	print OUT '<div class="well" style="padding: 8px 0;">';
+	print OUT '	<ul class="nav nav-list">      '; 
+	print OUT '        <li class="nav-header">Period</li>';
+	foreach $nav (@navs){
+		$htmlfile = "QC_$nav.shtml";
+		if (-f $htmlfile){
+			if(! -z $htmlfile){
+				print OUT '        <li><a href="'.$htmlfile.'">'.ucfirst($nav).'</a></li>';
+			}
+		}
+	}
+	print OUT '	</ul>';
+	print OUT '</div>';
+}
+
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# Function to get QC results
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+sub processQCdir {
+		$dir = $_[0];
+  
+		#@html_pages = `find $dir -maxdepth 2 -type f -name "index_*.html"`;
+		@html_pages = glob ("$dir/index_*.html");
+		chomp(@html_pages);
+		
+        print OUT "<tr>\n";
+        print OUT "<td style=\"width:20%\"><b>" . dirToDate($dir). "</b></td>\n";
+
+		if ( -z "$dir/projects.txt") {
+			unlink "$dir/projects.txt";
+		}
+		
+        if (! -f "$dir/projects.txt" ){
+            # Get projects
+            if( -w $dir) {
+				print "Finding projects in '$dir'\n";
+				if ($dir =~ /ion_proton/){
+					$cmd = "find $dir -type d | sed 's/.*ionNGS-[^-]*-//' | grep '[A-Z][0-9][0-9][0-9][-_][A-Z]' | sed 's/[_-].*//' | sort | uniq > $dir/projects.txt";
+					#print "$cmd\n";
+				} else {
+					$cmd = "find $dir -type d | sed 's/Sample_//' | sed 's/.*\\///' | sed 's/\.Lane.*//\' | grep '[A-Z][0-9][0-9][0-9]-[A-Z]' | sed 's/-.*//' | sort | uniq > $dir/projects.txt";
+				}
+				#print "$cmd\n";
+				@retval = `$cmd`;
+				print @retval;
+			} else {
+				print YELLOW "     Unable to index projects in '$dir' as permissions don't allow\n";
+			}
+        }
+        
+        if ( -f "$dir/projects.txt" ){
+            open my $fh, '<', "$dir/projects.txt";
+			chomp(my @projects = <$fh>);
+			close $fh;
+            print OUT "<td style=\"width:20%\">" . join(", ",@projects) . "</td>\n";
+        } else {
+            print OUT "<td style=\"width:20%\">&nbsp;</td>\n";
+        }
+ 
+ 
+		print OUT '<td style=\"width:40%\"\n>';
+        foreach my $html (sort {"\L$a" cmp "\L$b"} @html_pages){
+                $html =~ s/^.+\///g;
+                $file = "$dir/$html";
+
+                my $genome = $html;
+                $genome =~ s/^index_//;
+                $genome =~ s/\.html$//;
+                
+				if(exists($QCbtn{$genome})){ $class = "btn-".$QCbtn{$genome}; }
+				else { $class = "btn-".$QCbtn{'other'}; }
+                #push (@buffer, "<a href=''> QC summary</a>\n")
+                #print OUT "<a href=\"$file\" class=\"btn ".$class."\">$genome</a>\n";
+                
+                print OUT "<a class=\"btn ".$class."\" data-toggle=\"modal\" href=\"$file\" data-target=\"#myModal\">$genome</a>&nbsp;";
+                
+        }
+        
+        print OUT "</td>";
+        print OUT "<td style=\"width:20%\">";
+        
+        if (! -f "$dir/yieldreport.xlsx"){
+        	$basedir = getcwd();	
+        	chdir($dir);
+        	$cmd = "$basedir/yieldrpt";
+			#print "$cmd\n";
+			system($cmd);
+        	chdir($basedir);
+        }
+        
+
+        
+        if (-f "$dir/yieldreport.xlsx"){
+			print OUT "<a class=\"btn btn-mini btn-inverse\" href=\"".$dir."/yieldreport.xlsx\">Yield Report</a>";
+		}
+        print OUT "</td>";        
+        print OUT "</tr>\n";
+
+}
+
+sub processQC {
+	$platform = $_[1];
+	$year = $_[0];
+	print CYAN "$year > $platform \n";
+	$dir = $QCdirs{$platform};
+	#@QCdirs = `find $dir -maxdepth 1 -type d  -name "*_QC"`;
+	@QCdirs = glob("$dir/*_QC");
+	chomp(@QCdirs);
+	@QCdirs = sort {qcDateToNumber($b) <=> qcDateToNumber($a)} @QCdirs;
+	
+	$outfile = "QC_".$year."_".$platform.".html";
+	open (OUT, ">$outfile") or die "     ERROR: could not create $outfile.\n";
+	#print OUT "<table class=\"table table-condensed table-striped table-bordered\" style=\"width:60%\">\n";
+	
+	if($year eq "latest"){
+		# Get latest n runs limited to last 2 years.
+		@tmp = splice @QCdirs, 0, $latest;
+		@cyear = grep /${currentyear}/, @tmp;
+		$lastyear = $currentyear-1;
+		@lyear = grep /${lastyear}/, @tmp;
+		@QCdirs = (@cyear, @lyear);
+		
+		foreach $dir (@QCdirs){
+			print "===> $dir \n";
+			&processQCdir($dir);
+		}
+		
+	} else {
+		foreach $dir (@QCdirs){
+			#print "===> $dir ===> ".&qcDateToYear($dir)."\n";
+			if (&qcDateToYear($dir) == $year) {
+				print "===> $dir \n";
+				&processQCdir($dir);
+			}
+		}
+	}
+	#print OUT "</table>\n";
+	close(OUT);
+	
+	# Remove file if blank
+	if(-z $outfile){
+		print "===> No data found... deleting '$outfile'\n";
+		unlink($outfile);
+	}
+	
+}
+
+sub CreateYearHTHML {
+
+	$year = $_[0];
+	$outfile = "QC_".$year.".shtml";
+	open (OUT, ">$outfile") or die "ERROR: could not create $file.\n";
+
+print OUT <<EOF;
+
+<!--#include virtual="nav_header.html" -->
+
+
+<!------------------------------------------------------------------------------------------------------->
+<!-- Header and Side Bar -->
+<!------------------------------------------------------------------------------------------------------->
+
+
+<div class="row">
+<div class="span2"> <!-- Nav-->
+        <!--#include virtual="nav_side_dev.html" -->
+</div> <!--End Nav-->
+
+<div class="span10" style="padding: 20px 0;"> <!--Main-->
+
+<style>
+.modal-lg {
+    position: absolute;
+    width: 90%;
+    margin-left: -45%;
+    margin-top:0px;
+    height: 90%;
+
+    top: 5%;
+}
+.modal.fade.in {
+  top: 5%;
+}
+.modal-body {
+  overflow-y: auto;
+  height: 90%;
+  max-height:90%;
+}
+</style>
+<!------------------------------------------------------------------------------------------------------->
+<!-- Main -->
+<!------------------------------------------------------------------------------------------------------->
+
+EOF
+
+print OUT "<h2>".ucfirst($year)." QC</h2>\n";
+
+print OUT "<ul class=\"nav nav-pills\" id=\"myTab\">\n";
+$n=0;
+foreach $platform (@QCplatforms){
+	if($n==0) {$class = ' class="active"';}
+	else {$class = "";}
+	$htmlfile = "QC_".$year."_".$platform.".html";
+	if (-f $htmlfile){
+		if(! -z $htmlfile){
+			print OUT "<li $class><a href=\"#".$platform."\" >".$QCnames{$platform}."</a></li>\n";
+			$n++;
+		}
+	}
+}
+print OUT "</ul>\n";
+ 
+
+
+print OUT "<div class=\"tab-content\">\n";
+$n=0;
+foreach $platform (@QCplatforms){
+	if($n==0) {$class = ' active';}
+	else {$class = "";}
+	$htmlfile = "QC_".$year."_".$platform.".html";
+	if (-f $htmlfile){
+		if(! -z $htmlfile){
+			print OUT "  <div class=\"tab-pane$class\" id=\"".$platform."\">\n";
+			print OUT "<table class=\"table table-condensed table-striped table-bordered\" style=\"width:80%\">\n";
+			print OUT "<!--#include virtual=\"QC_".$year."_".$platform.".html\" -->\n";
+			print OUT "</table>\n";
+			print OUT "</div>\n";
+			$n++;
+		}
+	}
+}
+print OUT "</div>\n";
+
+print OUT <<EOF;
+ 
+<div class="modal modal-lg fade hide " id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+  <div class="modal-header">
+    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+    <h3 id="myModalLabel">&nbsp;</h3>
+  </div>
+  <div class="modal-body">
+  </div>
+</div>
+
+<script>
+	\$(function () {
+		\$('.nav-pills a').click(function(){
+			\$(this).tab('show');
+		})
+	})
+	\$('a.btn').on('click', function(e) {
+		e.preventDefault();
+		var url = \$(this).attr('href');
+		\$(".modal-body").html('<iframe width="100%" height="100%" frameborder="0" scrolling="yes" allowtransparency="true" src="'+url+'"></iframe>');
+		\$(".modal-header").html('<button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button><h3 id="myModalLabel"><a href="'+url+'" target="_blank">'+url+'</a></h3>');
+	});
+</script>
+
+EOF
+
+}
+
+
+
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# Generate output
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+foreach $year (@years){
+	foreach $platform (@platforms){
+		&processQC($year, $platform);
+	}
+	&CreateYearHTHML($year);
+}
+&outputnavside();
+
+exit;

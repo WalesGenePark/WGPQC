@@ -45,10 +45,10 @@ $SLURM_ACCOUNT="scw1179";
 $SLURM_CORES=10;
 $SLURM_WALLTIME="0-6:00";
 
-$RUNSE="/data09/QCtest/workflow/runSE.sh";
-$RUNPE="/data09/QCtest/workflow/runPE.sh";
+$RUNSE="/data09/QC_pipelines/workflow/runSE.sh";
+$RUNPE="/data09/QC_pipelines/workflow/runPE.sh";
 
-
+$QCOUTPUTDIR="/data09/QCtest";
 
 # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 # Process ARGV
@@ -110,7 +110,7 @@ if($verbose){
 # Output into local directory?
 if($outdir eq "."){
 	use Cwd;
-    $basedir = getcwd;
+    $basedir = $QCOUTPUTDIR;
 } else {
     $basedir = $outdir;
 }
@@ -460,7 +460,7 @@ if (prompt_yn("Please confirm this looks right")){
 # Kick off QC runs
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-$DEBUG=1;
+$DEBUG=0;
 if($DEBUG==1){
 	print CYAN Dumper (%info);
 	print CYAN Dumper(%refs);
@@ -471,7 +471,7 @@ if($DEBUG==1) { print "\n"; }
 
 $jobsrun = 0;
 
-$dryrun = 1;
+$dryrun = 0;
 
 for $lane (sort(keys(%info))){
 	for $line ($info{$lane}){
@@ -503,7 +503,7 @@ for $lane (sort(keys(%info))){
 					$R1 = $info{$lane}{$sample}{'R1'};
 					#$cmd = "queueit.pl -cpus $threads -name $jobname -- QC_map_SE_illumina.pl -1 $R1 -o $outdir -s $sample -l $lanestr -t $threads -r $ref -f $fraction -e 33 >/dev/null 2>&1";
 					
-					$cmd = "sbatch --account=\"$SLURM_ACCOUNT\" --partition=\"$SLURM_PARTITION\" --nodes=1 --ntasks-per-node=1 --cpus-per-task=$SLURM_CORES --time=\"$SLURM_WALLTIME\" --error=\"$jobname.err\" --output=\"$jobname.out\" --export=\"R1=$R1,outdir=$outdir,sample=$sample,lanestr=$lanestr,ref=$ref,fraction=$fraction\" $RUNSE";
+					$cmd = "sbatch --account=\"$SLURM_ACCOUNT\" --partition=\"$SLURM_PARTITION\" --nodes=1 --ntasks-per-node=1 --cpus-per-task=$SLURM_CORES --time=\"$SLURM_WALLTIME\" --error=\"$jobname.err\" --output=\"$jobname.out\" --export=\"R1=$R1,outdir=$outputdir,sample=$sample,lanestr=$lanestr,ref=$ref,fraction=$fraction,threads=$SLURM_CORES\" $RUNSE";
 					
 					if($DEBUG==1) { print MAGENTA "$cmd\n"; }
 					if($dryrun == 0){
@@ -516,7 +516,7 @@ for $lane (sort(keys(%info))){
 					$R2 = $info{$lane}{$sample}{'R2'};
 					#$cmd = "queueit.pl -cpus $threads -name $jobname -- QC_map_PE_illumina.pl -1 $R1 -2 $R2 -o $outdir -s $sample -l $lanestr -t $threads -r $ref -f $fraction -e 33 >/dev/null 2>&1";
 					
-					$cmd = "sbatch --account=\"$SLURM_ACCOUNT\" --partition=\"$SLURM_PARTITION\" --nodes=1 --ntasks-per-node=1 --cpus-per-task=$SLURM_CORES --time=\"$SLURM_WALLTIME\" --error=\"$jobname.err\" --output=\"$jobname.out\" --export=\"R1=$R1,R2=$R2,outdir=$outdir,sample=$sample,lanestr=$lanestr,ref=$ref,fraction=$fraction\" $RUNPE";
+					$cmd = "sbatch --account=\"$SLURM_ACCOUNT\" --partition=\"$SLURM_PARTITION\" --nodes=1 --ntasks-per-node=1 --cpus-per-task=$SLURM_CORES --time=\"$SLURM_WALLTIME\" --error=\"$jobname.err\" --output=\"$jobname.out\" --export=\"R1=$R1,R2=$R2,outdir=$outputdir,sample=$sample,lanestr=$lanestr,ref=$ref,fraction=$fraction,threads=$SLURM_CORES\" $RUNPE";
 					
 					if($DEBUG==1) { print MAGENTA "$cmd\n"; }
 					if($dryrun == 0){

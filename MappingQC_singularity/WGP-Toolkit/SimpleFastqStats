@@ -1,0 +1,3 @@
+
+java -Dapple.laf.useScreenMenuBar=true -Xmx10g -Djava.net.preferIPv4Stack=true -jar `dirname $0`/SimpleFastqStats.jar $*
+
