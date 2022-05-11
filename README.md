@@ -70,3 +70,16 @@ if [ "${ref}" == "hg19" ]; then
     refpath=/data09/QC_pipelines/genomes/UCSC/hg19/hg19
 fi
 ```
+
+
+MappingQC_singularity
+
+This directory contains all the custom code and libraries necessary along with a singularity definitions file needed to create a sif file to run the key QC pipeline.
+
+The key commands generated used for mapping paried-end (PE) and single-end (SE) fastq files and then generating various QC metrics and files are then:
+
+```
+singularity exec WGPQC-v1.0.sif QC_map_PE_illumina.pl
+singularity exec WGPQC-v1.0.sif QC_map_SE_illumina.pl
+
+```
