@@ -71,7 +71,7 @@ sub helpmsg {
 	exit(0);
 }
 
-$threads = 12;
+$threads = 10;
 
 $singleref=""; $multipleref=""; $fraction=0.1; $outdir="."; $DEBUG=0;
 
